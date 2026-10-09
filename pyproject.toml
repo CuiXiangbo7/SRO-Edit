@@ -1,0 +1,14 @@
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "sro-edit-core"
+version = "0.1.0"
+description = "Selected paper-aligned core modules for SRO-Edit"
+requires-python = ">=3.10"
+dependencies = ["numpy>=1.24", "torch>=2.7.1"]
+
+[tool.setuptools.packages.find]
+where = ["."]
+include = ["sro_edit*"]
