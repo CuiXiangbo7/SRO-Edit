@@ -17,3 +17,25 @@
 ## 参数
 
 超体素上限为 50,000/例；点击图为半径 2 voxel 的二值三维球。Stage A 的特征通道/卷积块数为 32/3，评分 MLP 为 `32–64–1`；ROI 损失参数为 `lambda_size=0.10`、`lambda_recall=1.00`、`alpha=0.25`、`gamma=2.0`。B1 refiner 为 4 个 32 通道残差块，`lambda_edit=0.10`；B2 为 4 轮，`lambda_ft=0.20`。ROI 阈值：BraTS21 WT/TC/ET 为 `0.10/0.12/0.14`；BraTS19 WT/TC/ET 为 `0.22/0.30/0.23`；UCSF-BMSR 为 `0.41`；CFB-GBM 为 `0.64`。
+
+---
+
+# SRO-Edit Core Code
+
+## Contents
+
+- `sro_edit/models/roi_head.py`: supervoxel ROI scoring head.
+- `sro_edit/models/refine_head.py`: ROI-conditioned residual refiner used during training.
+- `sro_edit/roi.py`: soft foreground-occupancy targets, thresholded ROI with clicked-supervoxel union, radius-2 3D click spheres, and ROI-gated state updates.
+- `sro_edit/losses.py`: Stage A ROI loss, Stage B1 edit/preservation loss, and Stage B2 teacher-consistency loss within the ROI.
+- `sro_edit/paper_config.py`: reported model and training settings, plus dataset-specific ROI thresholds.
+
+## Method Workflow
+
+The input includes precomputed 3DSEEDS supervoxel labels, with at most 50,000 supervoxels per case. The ROI head takes the image and accumulated positive and negative click maps, mean-pools features within each supervoxel, and predicts relevance scores. Stage A uses supervoxel foreground occupancy as a soft target. At inference, supervoxels above the paper's threshold are selected and combined with all click-containing supervoxels. Stage B1 learns residual corrections, while Stage B2 uses the frozen refiner to produce soft targets within the ROI. The refiner is removed at inference; the current binary prediction is used inside the ROI, and the previous state is retained outside it.
+
+Volumes use array order `(D,H,W)` and network tensors use `(B,C,D,H,W)`. The inference state starts at zero. Raw segmentation logits are thresholded at 0.5 to obtain a binary prediction before ROI gating. `make_refiner_input` concatenates `[X, I_k, M_edit,k, sigmoid(B_k)]` in the order specified by the paper. The caller provides the 3D U-Net, interaction state, and precomputed supervoxels.
+
+## Parameters
+
+The supervoxel limit is 50,000 per case, and click maps are binary 3D spheres with a radius of 2 voxels. Stage A uses 32 feature channels across 3 convolutional blocks and a `32–64–1` scoring MLP. ROI-loss parameters are `lambda_size=0.10`, `lambda_recall=1.00`, `alpha=0.25`, and `gamma=2.0`. The B1 refiner has four residual blocks with 32 channels and `lambda_edit=0.10`; B2 uses four rounds and `lambda_ft=0.20`. ROI thresholds are BraTS21 WT/TC/ET `0.10/0.12/0.14`; BraTS19 WT/TC/ET `0.22/0.30/0.23`; UCSF-BMSR `0.41`; and CFB-GBM `0.64`.
